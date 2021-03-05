@@ -10,6 +10,13 @@ use serde::Deserialize;
 use serde_yaml;
 use std::fs::OpenOptions;
 use std::fs;
+use std::path::Path;
+
+#[cfg(target_family = "unix")]
+const DIR: &str = env!("PWD");
+
+#[cfg(target_family = "windows")]
+const DIR: &str = env!("CD");
 
 #[derive(Deserialize)]
 struct Urls {
@@ -39,8 +46,8 @@ fn check_time(arg: String) -> Result<(), String> {
 }
 
 fn read_urls() -> Result<Urls, Box<dyn Error>> {
-    let urls_path = "/home/jacob/documents/spl/spl/urls.yml";
-    let urls_raw = fs::read(urls_path)?;
+    let urls_path = Path::new(DIR).join("resources").join("urls.yml");
+    let urls_raw = fs::read(&urls_path)?;
     let urls_str = String::from_utf8_lossy(&urls_raw);
     Ok(serde_yaml::from_str(&urls_str)?)
 }
@@ -48,7 +55,7 @@ fn read_urls() -> Result<Urls, Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = clap_app!(
         spl =>
-        (version: "0.1.0")
+        (version: "0.2.0")
         (author: "Jacob Henn")
         (about: "Spl33n moments database tools")
         (
@@ -80,7 +87,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     ).get_matches();
 
-    let conn = Connection::open("/home/jacob/documents/spl/spl/spl.db")?;
+    let db_path = Path::new(DIR).join("resources").join("spl.db");
+    let conn = Connection::open(&db_path)?;
 
     match matches.subcommand() {
         ("fz",  Some(subm)) => fz(conn, subm),
@@ -162,7 +170,7 @@ fn fz(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
                )).unwrap_or(());
             },
             None => bunt::print!(
-                "{[cyan]} {[cyan]:<2} {[bold+cyan]:4$} {[bold+red]:4$}",
+                "{[cyan]} {[cyan]:<2} {[bold+cyan]:4$} {[bold+red]:4$} ",
                 &row.series,
                 &row.episode,
                 xtime,
