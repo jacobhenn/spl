@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     ).get_matches();
 
-    let conn = Connection::open("/home/jacob/documents/spl/spl.db")?;
+    let conn = Connection::open("/home/jacob/documents/spl/spl/spl.db")?;
 
     match matches.subcommand() {
         ("fz", Some(subm)) => fz(conn, subm),
