@@ -8,7 +8,7 @@ The **SPL33N Moments Database** is a set of indexed references to multiple humor
 ### Database entries follow a specific format:
 
 - Three-character abbreviation of the series name
-- Episode number. In case there is a conflict on this across perspectives, it will be CS's episode number. The reason for this is that to date, CS has posted only a few solo episodes without X (sf3e15 + fkde1..2,6), whereas X has done many.
+- Episode number. In case there is a conflict on this across perspectives, it will always be CS's episode number. The reason for this is that to date, CS has posted only a few solo episodes without X (sf3e15,17 + fkde1..2,6), whereas X has done more than six.
 - Timecodes. Normally, only one timecode will be given if the event is most enjoyable from one perspective (the other cell is set NULL). If the event is enjoyable from both, both timecodes will be given. **Timecodes ARE NOT given in HH:MM:SS format**. Timecode format is raw seconds, which is the format used in YouTube's URL params. This makes it so that you can search YouTube for `[creator] [series] [ep. num]`, click on the relevant video, and append `&t=[timecode]` to the URL to jump to that specific time. You can use `time({col},'unixepoch')` in a raw SQLite query to convert `{col}` from `SSSS` to `HH:MM:SS` format.
 - A brief description given in the present indicative and using **CS** and **X** to refer to **CaptainSparklez** and **X33N** for consistency and brevity.
 
@@ -16,6 +16,10 @@ The **SPL33N Moments Database** is a set of indexed references to multiple humor
 
 The Database is embedded here as a google sheets file, but the live version I work on is an SQLite database which I manage from a custom program written in Rust. You can download `spl.db` from the repo (the link in the header) and put it into an external SQLite viewer or clone and compile the spl tool for yourself from the repo using `cargo build`. Put it in your `PATH` and run `spl -h` for help on what it does.
 
+### Link generation
+
+I used `youtube-dl` to fetch the video IDs for all of CS and X's collab playlists up to and not including Fallen Kingdom, and put them in the `urls.yml` file. The `spl` tool has the ability to generate timestamped `youtu.be` links for all of your fuzzy search results by using `spl fz -l`.
+
 ### Future projects
 
-I am currently working on an extension to the `spl` tool which will be activated by `spl fz -l` which, through some means or another, automatically generates timestamped `youtu.be` URLs to the matching videos.
+Soon, the Google Sheets embed above will contain auto-generated URLs instead of `series, episode, xtime, ctime`. It'll take me a while to figure out how to squash `spl.db` and `urls.yml` together into a `csv` file I can open in Sheets.
