@@ -4,11 +4,12 @@ use bunt;
 use clap::{clap_app, ArgMatches};
 use chrono::NaiveTime;
 use std::io;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::collections::HashMap;
 use serde::Deserialize;
 use serde_yaml;
-use std::fs::File;
+use std::fs::OpenOptions;
+use std::fs;
 
 #[derive(Deserialize)]
 struct Urls {
@@ -37,6 +38,13 @@ fn check_time(arg: String) -> Result<(), String> {
         .map_err(|_| format!("must be a number between 0 and {}", u16::MAX))
 }
 
+fn read_urls() -> Result<Urls, Box<dyn Error>> {
+    let urls_path = "/home/jacob/documents/spl/spl/urls.yml";
+    let urls_raw = fs::read(urls_path)?;
+    let urls_str = String::from_utf8_lossy(&urls_raw);
+    Ok(serde_yaml::from_str(&urls_str)?)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = clap_app!(
         spl =>
@@ -46,10 +54,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         (
             @subcommand fz =>
             (about: "Fuzzy search the database")
-            (@arg TIMEFMT: -t "Prints times as HH:MM:SS")
+            (@arg TIMEFMT: -t conflicts_with[LINKS] "Prints times as HH:MM:SS")
             (@arg LINKS: -l "Output links to the matching videos")
             (@arg SEARCH: +required "Keyword(s) to search for")
-            (@arg SERIES: -s +takes_value "Grabs entries from one series")
+            (@arg SERIES: -s +takes_value "Grabs entries from a single series")
         )
         (
             @subcommand add =>
@@ -57,22 +65,27 @@ fn main() -> Result<(), Box<dyn Error>> {
             (@arg series: +required "series")
             (@arg episode: {check_ep} +required "episode")
             (
-                @arg
-                xtime: {check_time} -x +takes_value "X's time (raw seconds)"
+                @arg xtime:
+                {check_time} -x +takes_value "X's time (raw seconds)"
             )
             (
-                @arg
-                ctime: {check_time} -c +takes_value "CS's time (raw seconds)"
+                @arg ctime:
+                {check_time} -c +takes_value "CS's time (raw seconds)"
             )
             (@arg desc: +required "description")
+        )
+        (
+            @subcommand gencsv =>
+            (about: "Generate a moments.csv file with urls and descriptions")
         )
     ).get_matches();
 
     let conn = Connection::open("/home/jacob/documents/spl/spl/spl.db")?;
 
     match matches.subcommand() {
-        ("fz", Some(subm)) => fz(conn, subm),
+        ("fz",  Some(subm)) => fz(conn, subm),
         ("add", Some(subm)) => add(conn, subm),
+        ("gencsv", _) => gencsv(conn),
         (_, None) => Ok(
             bunt::println!("{$bold+red}error:{/$} no subcommand was given")
         ),
@@ -106,12 +119,9 @@ fn fz(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let tfmt_arg = subm.is_present("TIMEFMT");
     let link_arg = subm.is_present("LINKS");
 
-    let urls: Option<Urls> = if link_arg {
-        let mut urls_raw = String::new();
-        let mut urls_file = File::open("/home/jacob/documents/spl/spl/urls.yml")?;
-        urls_file.read_to_string(&mut urls_raw)?;
-        Some(serde_yaml::from_str(&urls_raw)?)
-    } else { None };
+    let urls: Option<Urls> =
+        if link_arg { Some(read_urls()?) }
+        else { None };
 
     let timefmt = |time: Option<u16>| time.map_or(
         "".into(),
@@ -139,14 +149,14 @@ fn fz(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
                 row.xtime.map(|xt| bunt::println!(
                     "{$blue}https://youtu.be/{}&t={}{/$}",
                     u.x.get(&row.series).and_then(
-                        |s| s.iter().nth((row.episode - 1).into())
+                        |s| s.iter().nth((row.episode - 1) as usize)
                     ).unwrap_or(&placeholder),
                     xt
                 )).unwrap_or(());
                 row.ctime.map(|ct| bunt::println!(
                     "{$red}https://youtu.be/{}&t={}{/$}",
                     u.cs.get(&row.series).and_then(
-                        |s| s.iter().nth((row.episode - 1).into())
+                        |s| s.iter().nth((row.episode - 1) as usize)
                     ).unwrap_or(&placeholder),
                     ct
                )).unwrap_or(());
@@ -188,5 +198,52 @@ fn add(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
             subm.value_of("desc"),
         ],
     ).map(|_| ())?;
+    Ok(())
+}
+
+fn gencsv(conn: Connection) -> Result<(), Box<dyn Error>> {
+    let mut stmt = conn.prepare("SELECT * FROM moments")?;
+    let rows = stmt.query_map(params![], |row| {
+        Ok(Row {
+            series:  row.get(0)?,
+            episode: row.get(1)?,
+            xtime:   row.get(2)?,
+            ctime:   row.get(3)?,
+            desc:    row.get(4)?,
+        })
+    })?;
+
+    let urls = read_urls()?;
+
+    let csv = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("moments.csv")?;
+
+    writeln!(&csv, "DESC,XURL,CURL")?;
+
+    for row_res in rows {
+        let row = row_res?;
+        let placeholder = String::new();
+        writeln!(
+            &csv, r#""{}",{},{}"#,
+            &row.desc,
+            row.xtime.map(|xt| format!(
+                "https://youtu.be/{}&t={}",
+                urls.x.get(&row.series).and_then(
+                    |s| s.iter().nth((row.episode - 1) as usize)
+                ).unwrap_or(&placeholder),
+                xt
+            )).unwrap_or("".into()),
+            row.ctime.map(|ct| format!(
+                "https://youtu.be/{}&t={}",
+                urls.cs.get(&row.series).and_then(
+                    |s| s.iter().nth((row.episode - 1) as usize)
+                ).unwrap_or(&placeholder),
+                ct
+           )).unwrap_or("".into()),
+        )?;
+    }
+
     Ok(())
 }
