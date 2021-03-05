@@ -10,6 +10,8 @@ edition = "2018"
 rusqlite = "0.24.2"
 bunt = "0.2.4"
 chrono = "0.4.19"
+serde_yaml = "0.8.13"
+serde = { version = "1.0.123", features = ["derive"] }
 
 [dependencies.clap]
 version = "2.33.3"

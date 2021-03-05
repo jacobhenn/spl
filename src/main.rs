@@ -4,7 +4,17 @@ use bunt;
 use clap::{clap_app, ArgMatches};
 use chrono::NaiveTime;
 use std::io;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::collections::HashMap;
+use serde::Deserialize;
+use serde_yaml;
+use std::fs::File;
+
+#[derive(Deserialize)]
+struct Urls {
+    x:  HashMap<String, Vec<String>>,
+    cs: HashMap<String, Vec<String>>,
+}
 
 #[derive(Debug)]
 struct Row {
@@ -12,7 +22,7 @@ struct Row {
     episode: u8,
     xtime: Option<u16>,
     ctime: Option<u16>,
-    desc: String
+    desc: String,
 }
 
 fn check_ep(arg: String) -> Result<(), String> {
@@ -37,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             @subcommand fz =>
             (about: "Fuzzy search the database")
             (@arg TIMEFMT: -t "Prints times as HH:MM:SS")
-            // (@arg LINKS: -l "Output links to the matching videos")
+            (@arg LINKS: -l "Output links to the matching videos")
             (@arg SEARCH: +required "Keyword(s) to search for")
             (@arg SERIES: -s +takes_value "Grabs entries from one series")
         )
@@ -94,7 +104,14 @@ fn fz(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
     })?;
 
     let tfmt_arg = subm.is_present("TIMEFMT");
-    // let link_arg = subm.is_present("LINKS");
+    let link_arg = subm.is_present("LINKS");
+
+    let urls: Option<Urls> = if link_arg {
+        let mut urls_raw = String::new();
+        let mut urls_file = File::open("/home/jacob/documents/spl/spl/urls.yml")?;
+        urls_file.read_to_string(&mut urls_raw)?;
+        Some(serde_yaml::from_str(&urls_raw)?)
+    } else { None };
 
     let timefmt = |time: Option<u16>| time.map_or(
         "".into(),
@@ -115,14 +132,34 @@ fn fz(conn: Connection, subm: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let xtime = timefmt(row.xtime);
         let ctime = timefmt(row.ctime);
 
-        bunt::print!(
-            "{[cyan]} {[cyan]:<2} {[bold+cyan]:4$} {[bold+red]:4$}",
-            &row.series,
-            &row.episode,
-            xtime,
-            ctime,
-            timepad
-        );
+        match urls {
+            Some(ref u) => {
+                let placeholder = String::from("---");
+                print!("\n");
+                row.xtime.map(|xt| bunt::println!(
+                    "{$blue}https://youtu.be/{}&t={}{/$}",
+                    u.x.get(&row.series).and_then(
+                        |s| s.iter().nth((row.episode - 1).into())
+                    ).unwrap_or(&placeholder),
+                    xt
+                )).unwrap_or(());
+                row.ctime.map(|ct| bunt::println!(
+                    "{$red}https://youtu.be/{}&t={}{/$}",
+                    u.cs.get(&row.series).and_then(
+                        |s| s.iter().nth((row.episode - 1).into())
+                    ).unwrap_or(&placeholder),
+                    ct
+               )).unwrap_or(());
+            },
+            None => bunt::print!(
+                "{[cyan]} {[cyan]:<2} {[bold+cyan]:4$} {[bold+red]:4$}",
+                &row.series,
+                &row.episode,
+                xtime,
+                ctime,
+                timepad
+            ),
+        }
 
         bunt::println!("{}", &row.desc);
     }
