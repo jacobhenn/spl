@@ -1,6 +1,6 @@
 # SPL33N Moments Database
 
-<iframe src="https://docs.google.com/spreadsheets/d/e/2PACX-1vRznvGAWVZ6s8vMrHWAhu6CPbp1QzIjS-qW5HI7R9VYnRB13QqYjSqc4PXNBGxCTfnB0UFXqGZrs_9g/pubhtml?widget=true&amp;headers=false"></iframe>
+<iframe style="width:100%;height:500px" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vRznvGAWVZ6s8vMrHWAhu6CPbp1QzIjS-qW5HI7R9VYnRB13QqYjSqc4PXNBGxCTfnB0UFXqGZrs_9g/pubhtml?widget=true&amp;headers=false"></iframe>
 [(view on google sheets)](https://docs.google.com/spreadsheets/d/1-iK2s7sYW8WPFyLElJD0boiJrsKOaQLwGUJhlUZfm8g/edit?usp=sharing)
 
 The **SPL33N Moments Database** is a set of indexed references to multiple humorous or otherwise memorable moments in the course of all of **CaptainSparklez** and **X33N**'s collaboration series. The database currently is and probably forever will be incomplete, and does not contain every single moment but hopes to provide an easy reference for episode searchers or a place of introduction for new viewers.
