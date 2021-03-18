@@ -55,7 +55,7 @@ fn read_urls() -> Result<Urls, Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = clap_app!(
         spl =>
-        (version: "0.2.0")
+        (version: "0.5.1")
         (author: "Jacob Henn")
         (about: "Spl33n moments database tools")
         (
@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
         (
             @subcommand gencsv =>
-            (about: "Generate a moments.csv file with urls and descriptions")
+            (about: "Generate a moments.csv file")
         )
     ).get_matches();
 
@@ -228,28 +228,40 @@ fn gencsv(conn: Connection) -> Result<(), Box<dyn Error>> {
         .create(true)
         .open("moments.csv")?;
 
-    writeln!(&csv, "DESC,XURL,CURL")?;
-
     for row_res in rows {
         let row = row_res?;
         let placeholder = String::new();
+
+        let xtime = &row.xtime.map(|x|
+            NaiveTime::from_num_seconds_from_midnight(x as u32, 0)
+                .to_string()
+        ).unwrap_or_default();
+
+        let ctime = &row.ctime.map(|c|
+            NaiveTime::from_num_seconds_from_midnight(c as u32, 0)
+                .to_string()
+        ).unwrap_or_default();
+
         writeln!(
-            &csv, r#""{}",{},{}"#,
+            &csv, r#""{}",{},{},{},{},{},{}"#,
             &row.desc,
+            &row.series,
+            &row.episode,
+            xtime, ctime,
             row.xtime.map(|xt| format!(
                 "https://youtu.be/{}&t={}",
                 urls.x.get(&row.series).and_then(
                     |s| s.iter().nth((row.episode - 1) as usize)
                 ).unwrap_or(&placeholder),
                 xt
-            )).unwrap_or("".into()),
+            )).unwrap_or_default(),
             row.ctime.map(|ct| format!(
                 "https://youtu.be/{}&t={}",
                 urls.cs.get(&row.series).and_then(
                     |s| s.iter().nth((row.episode - 1) as usize)
                 ).unwrap_or(&placeholder),
                 ct
-           )).unwrap_or("".into()),
+           )).unwrap_or_default(),
         )?;
     }
 
