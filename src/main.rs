@@ -228,6 +228,8 @@ fn gencsv(conn: Connection) -> Result<(), Box<dyn Error>> {
         .create(true)
         .open("moments.csv")?;
 
+    writeln!(&csv, "description,ser.,ep.,X's time,CS's time,X's link,CS's link");
+
     for row_res in rows {
         let row = row_res?;
         let placeholder = String::new();
